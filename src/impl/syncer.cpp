@@ -175,7 +175,7 @@ void Syncer::launch_procs(std::list<SyncProcess> &procs, std::vector<File> &queu
 	
 	// start each process
 	for(SyncProcess &proc : procs){
-		proc.consume(queue);
+		proc.consume(queue, is_rclone());
 		std::string msg = "Launching " + exec_bin_ + " " + exec_flags_ + " with " + std::to_string(proc.payload_count()) + " files.";
 		if(nproc > 1) msg = "Proc " + std::to_string(proc.id()) + ": " + msg;
 		Logging::log.message(msg, 1);
@@ -224,7 +224,7 @@ LAUNCH_PROCS_RET_T Syncer::handle_returned_procs(std::list<SyncProcess> &procs, 
 				}
 				procs.erase(exited_proc);
 			}else{
-				exited_proc->consume(queue);
+				exited_proc->consume(queue, is_rclone());
 				{
 					std::string msg = "Launching " + exec_bin_ + " " + exec_flags_ + " with " + std::to_string(exited_proc->payload_count()) + " files.";
 					if(nproc > 1) msg = "Proc " + std::to_string(exited_proc->id()) + ": " + msg;

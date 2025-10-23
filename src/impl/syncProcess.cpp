@@ -90,8 +90,16 @@ bool SyncProcess::full_test(const File &file) const{
 	return (curr_mem_usage_ + file.path_len() + 1 + sizeof(char *) >= max_mem_usage_);
 }
 
-void SyncProcess::consume(std::vector<File> &queue){
-	while(file_itr_ < queue.end() && !full_test(*file_itr_)){
+void SyncProcess::consume(std::vector<File> &queue, bool is_rclone){
+
+	if(is_rclone){
+		Logging::log.message(file_itr_->rel_path().string(), 2);
+		add(file_itr_);
+		Logging::log.message(file_itr_->rel_path().string(), 2);
+		std::advance(file_itr_, inc_);
+	}
+
+	while(!is_rclone && file_itr_ < queue.end() && !full_test(*file_itr_)){
 		add(file_itr_);
 		std::advance(file_itr_, inc_);
 	}
@@ -99,6 +107,12 @@ void SyncProcess::consume(std::vector<File> &queue){
 		sending_to_ = *destination_;
 		payload_.push_back((char *)destination_->c_str());
 	}
+	std::string message;
+	for (auto& payload : payload_){
+		message += std::string(payload);
+		message += " ";
+	}
+	Logging::log.message(message, 2);
 	payload_.push_back(NULL);
 }
 

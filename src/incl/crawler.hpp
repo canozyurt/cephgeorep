@@ -75,6 +75,7 @@ public:
 	 * into file_list_, keeps tally of filesize in
 	 * total_bytes.
 	 */
+	bool is_updated_directory(const File &file) const;
 	bool ignore_entry(const File &file) const;
 	/* Returns true if file should not be queued or directory should
 	 * not be searched.

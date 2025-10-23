@@ -108,7 +108,7 @@ public:
 	/* Returns true if curr_mem_usage_ exceeds the maximum
 	 * if file were to be added.
 	 */
-	void consume(std::vector<File> &queue);
+	void consume(std::vector<File> &queue, bool is_rclone);
 	/* Push c string pointers into payload_ vector until memory
 	 * usage is full or end of queue.
 	 */

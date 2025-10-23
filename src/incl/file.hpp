@@ -22,9 +22,11 @@
 #include "alert.hpp"
 #include "signal.hpp"
 #include <string>
+#include <iostream>
 
 extern "C" {
 	#include <sys/stat.h>
+	#include <sys/xattr.h>
 }
 
 class File{
@@ -33,13 +35,26 @@ private:
 	bool is_directory_;
 	size_t path_len_;
 	char *path_;
+	fs::path snap_root_;
 	timespec rctime_;
+	size_t subdirectory_count_ = 0;
+	fs::path rel_;
+
 	inline void init(const char *path, size_t snap_root_len, const struct stat &st){
 		size_ = st.st_size;
 		is_directory_ = S_ISDIR(st.st_mode);
 		if(is_directory_){
 			path_ = new char[strlen(path) + 1];
 			strcpy(path_, path);
+			ssize_t xattr_size = getxattr(path, "ceph.dir.subdirs", nullptr, 0);
+			std::vector<char> buffer(xattr_size + 1, 0);
+			getxattr(path, "ceph.dir.subdirs", buffer.data(), xattr_size);
+			std::string subdirs = buffer.data();
+			subdirectory_count_ = std::stoi(subdirs.c_str());
+
+			rel_ = fs::relative(path, snap_root_);
+			std::cout << rel_path() << std::endl;
+
 		}else{
 			// split file path with /./
 			// allocate new path
@@ -71,7 +86,8 @@ private:
 	}
 public:
 	File(void) : size_(0), is_directory_(false), path_len_(0), path_(0), rctime_{0,0} {}
-	File(const char *path, size_t snap_root_len) : path_len_(0){
+	File(const char *path, fs::path snap_root, size_t snap_root_len) 
+		: path_len_(0), snap_root_(snap_root){
 		struct stat st;
 		int res = lstat(path, &st);
 		if(res == -1){
@@ -81,7 +97,8 @@ public:
 		}
 		init(path, snap_root_len, st);
 	}
-	File(const char *path, size_t snap_root_len, const struct stat &st) : path_len_(0){
+	File(const char *path, fs::path snap_root, size_t snap_root_len, const struct stat &st)
+	 : path_len_(0), snap_root_(snap_root){
 		init(path, snap_root_len, st);
 	}
 	File(const File &other) = delete;
@@ -115,6 +132,11 @@ public:
 	char *path(void) const{
 		return path_;
 	}
+
+	fs::path rel_path(void) {
+		return rel_;
+	}
+
 	void disown_path(void){
 		path_ = nullptr;
 	}
@@ -123,5 +145,8 @@ public:
 	}
 	timespec rctime(void) const{
 		return rctime_;
+	}
+	size_t subdirectory_count(void) const{
+		return subdirectory_count_;
 	}
 };

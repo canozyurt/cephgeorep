@@ -100,4 +100,6 @@ public:
 	void distribute_files(std::vector<File> &queue, std::list<SyncProcess> &procs) const;
 	/* Round robin distribution of files until all processes are full.
 	 */
+
+	bool is_rclone(void){return exec_bin_ == "rclone";};
 };

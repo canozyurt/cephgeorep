@@ -186,6 +186,12 @@ inline bool check_vim_swap(const char *file_name){
 	);
 }
 
+bool Crawler::is_updated_directory(const File &file) const{
+	if(last_rctime_.is_newer(file) && file.is_directory())
+		return true;
+	return false;
+}
+
 bool Crawler::ignore_entry(const File &file) const{
 	if(last_rctime_.is_newer(file)){
 		const char *file_name = get_filename(file.path());
@@ -201,10 +207,26 @@ bool Crawler::ignore_entry(const File &file) const{
 
 void Crawler::find_new_files_recursive(std::vector<File> &file_list, fs::path current_path, const fs::path &snap_root, uintmax_t &total_bytes){
 	size_t snap_root_len = snap_root.string().length();
+	bool is_rclone = config_.exec_bin_ == "rclone";
+	Logging::log.message("Is it rclone?: " + is_rclone, 2);
+	
 	for(fs::directory_iterator itr{current_path}; itr != fs::directory_iterator{}; *itr++){
 		fs::directory_entry entry = *itr;
 		const char *path = entry.path().c_str();
-		File file(path, snap_root_len);
+		File file(path, snap_root, snap_root_len);
+		Logging::log.message("Path: " + std::string(file.path()) + " Subdirs: " + std::to_string(file.subdirectory_count()), 2);
+		
+		if (is_rclone){
+			if (is_updated_directory(file)){
+				file_list.emplace_back(std::move(file));
+				if (file.subdirectory_count() > 0){
+					find_new_files_recursive(file_list, entry.path(), snap_root, total_bytes);
+				} else {
+					Logging::log.message("Skipping path: " + std::string(entry.path().c_str()) , 2);
+				}
+			}
+			continue;
+		}
 		if(ignore_entry(file)) continue;
 		if(file.is_directory()){
 			find_new_files_recursive(file_list, entry.path(), snap_root, total_bytes); // recurse
@@ -227,7 +249,7 @@ void Crawler::find_new_files_mt_bfs(std::vector<File> &file_list, ConcurrentQueu
 		if(!nodes_left) return;
 		// put all child directories back in queue
 		for(fs::directory_iterator itr{node}; itr != fs::directory_iterator{}; *itr++){
-			File file(itr->path().c_str(), snap_root_len);
+			File file(itr->path().c_str(), snap_root, snap_root_len);
 			if(!ignore_entry(file)){
 				if(file.is_directory()){
 					// put child directory into queue
